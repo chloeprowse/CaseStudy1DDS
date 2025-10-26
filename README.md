@@ -1,1 +1,11 @@
-# CaseStudy1DDS
+Executive Summary:
+This project analyzes employee attrition at Frito-Lay in order to identify which factors contribute most to attrition and how we can use predictive models to help reduce it. The goal of this project was to create a model that could accurately predict which employees were most likely to leave the company, so that the company would be able to take early action and reduce replacement costs. 
+
+The factors that I identified that were significantly related to attrition were Overtime, Number of  Companies Worked, Years Since Last Promotion, Job Satisfaction, Job Involvement, and Environment Satisfaction. All of these factors showed a strong relationship with attrition. For example, employees who were working overtime or who had worked at multiple companies before were more likely to leave, while those with higher job satisfaction and job involvement were more likely to stay. 
+
+The KNN and Naive Bayes models both met the target of 60% sensitivity and specificity. The Naive Bayes model performed better overall with about 78.5% accuracy, 67.3% sensitivity, and 81.3% specificity. The KNN model did have a slightly higher sensitivity but it had a lower overall accuracy and specificity. From a financial perspective, both the KNN and Naive Bayes models could help save Frito-Lay $1-10 million annually, depending on whether the replacement cost is between 50% or 400% of the employees annual salary. However, the Naive Bayes model achieved very similar savings to the KNN model with fewer false positives, making it the more cost-effective model. 
+
+The logistic regression model helped identify which factors were statistically significant for predicting attrition. It was able to show that higher job satisfaction, job involvement, and environment satisfaction reduce attrition, while working overtime, the number of companies an employee worked at before, and the number of years since last promotion increased attrition. 
+
+Overall, this analysis suggests that attrition is strongly dependent on the factors mentioned above. Additionally, the data suggests that most employees who leave tend to have not been at the company for more than 5 years, meaning that early retention programs or engagement could be impactful for the company. 
+
