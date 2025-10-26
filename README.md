@@ -1,4 +1,5 @@
 Executive Summary:
+
 This project analyzes employee attrition at Frito-Lay in order to identify which factors contribute most to attrition and how we can use predictive models to help reduce it. The goal of this project was to create a model that could accurately predict which employees were most likely to leave the company, so that the company would be able to take early action and reduce replacement costs. 
 
 The factors that I identified that were significantly related to attrition were Overtime, Number of  Companies Worked, Years Since Last Promotion, Job Satisfaction, Job Involvement, and Environment Satisfaction. All of these factors showed a strong relationship with attrition. For example, employees who were working overtime or who had worked at multiple companies before were more likely to leave, while those with higher job satisfaction and job involvement were more likely to stay. 
