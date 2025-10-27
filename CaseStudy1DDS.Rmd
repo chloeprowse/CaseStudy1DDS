@@ -1,0 +1,354 @@
+---
+title: "Case Study 1 - Employee Attrition Analysis"
+author: "Chloe Prowse"
+date: "2025-10-26"
+output: html_document
+---
+
+## Executive Summary
+
+This project analyzes employee attrition at Frito-Lay in order to identify which factors contribute most to attrition and how we can use predictive models to help reduce it. The goal of this project was to create a model that could accurately predict which employees were most likely to leave the company, so that the company would be able to take early action and reduce replacement costs. 
+
+The factors that I identified that were significantly related to attrition were Overtime, Number of  Companies Worked, Years Since Last Promotion, Job Satisfaction, Job Involvement, and Environment Satisfaction. All of these factors showed a strong relationship with attrition. For example, employees who were working overtime or who had worked at multiple companies before were more likely to leave, while those with higher job satisfaction and job involvement were more likely to stay. 
+
+The KNN and Naive Bayes models both met the target of 60% sensitivity and specificity. The Naive Bayes model performed better overall with about 78.5% accuracy, 67.3% sensitivity, and 81.3% specificity. The KNN model did have a slightly higher sensitivity but it had a lower overall accuracy and specificity. From a financial perspective, both the KNN and Naive Bayes models could help save Frito-Lay $1-10 million annually, depending on whether the replacement cost is between 50% or 400% of the employees annual salary. However, the Naive Bayes model achieved very similar savings to the KNN model with fewer false positives, making it the more cost-effective model. 
+
+The logistic regression model helped identify which factors were statistically significant for predicting attrition. It was able to show that higher job satisfaction, job involvement, and environment satisfaction reduce attrition, while working overtime, the number of companies an employee worked at before, and the number of years since last promotion increased attrition. 
+
+Overall, this analysis suggests that attrition is strongly dependent on the factors mentioned above. Additionally, the data suggests that most employees who leave tend to have not been at the company for more than 5 years, meaning that early retention programs or engagement could be impactful for the company. 
+
+## Introduction
+
+This project focuses on analyzing employee attrition at Frito-Lay  in order to understand which factors significantly affected attrition and how we can use predictive modeling to help reduce it. I used the company's attrition data set to develop and compare a KNN model and a Naive Bayes model. These models were developed to predict which employees were most likely to leave and which employees were most likely to stay. The KNN and Naive Bayes models were evaluated using sensitivity, specificity, and accuracy. A cost analysis was included for both models in order to estimate the cost of the model and the potential savings from each model. A logistic regression model was also developed to help identify which factors were statistically significant in predicting attrition. Overall, this study uses data exploration and predictive modeling to help Frito-Lay in its effort to reduce attrition and find strategies to help improve employee retention. 
+
+## Code
+```{r}
+library(tidyverse)
+library(caret)
+library(e1071)
+library(class)
+
+set.seed(123)
+
+attrition_data <- read.csv("C:/Users/chloe/Downloads/CaseStudy1-data.csv", header = TRUE, stringsAsFactors = TRUE)
+
+#I got rid of these columns because they were the same for every employee
+attrition_data <- attrition_data %>% select(-EmployeeCount, -StandardHours)
+#I made attrition into a factor so R won't try to read it as numeric
+attrition_data$Attrition <- as.factor(attrition_data$Attrition)
+
+#I changed the values using the data dictionary so that it is easier to interpret 
+if(is.numeric(attrition_data$BusinessTravel)){
+  attrition_data$BusinessTravel <- factor(attrition_data$BusinessTravel,
+                                          levels = c(1,2,3),
+                                          labels = c("Non-Travel","Travel Frequently","Travel Rarely"))
+}
+if(is.numeric(attrition_data$Department)){
+  attrition_data$Department <- factor(attrition_data$Department,
+                                      levels = c(1,2,3),
+                                      labels = c("HR","R&D","Sales"))
+}
+if(is.numeric(attrition_data$Education)){
+  attrition_data$Education <- factor(attrition_data$Education,
+                                     levels = 1:5,
+                                     labels = c("Below College","College","Bachelor","Master","Doctor"))
+}
+
+
+
+#This was for my EDA
+#attrition totals
+ggplot(attrition_data, aes(x = Attrition, fill = Attrition)) +
+  geom_bar() +
+  geom_text(stat = "count",
+            aes(label = paste0(round(..count../sum(..count..)*100,1), "%")),
+            vjust = -0.5, color = "black", size = 4) +
+  scale_fill_manual(values = c("No" = "darkblue", "Yes" = "darkorange")) +
+  guides(fill = "none") +
+  theme_minimal() +
+  labs(title = "Attrition Summary", 
+       x = "Attrition", 
+       y = "Number of Employees") +
+  theme(
+    plot.title = element_text(size = 18, hjust = 0.5),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  )
+
+#monthly income & attrition 
+ggplot(attrition_data, aes(x = Attrition, y = MonthlyIncome, fill = Attrition)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("No" = "darkblue", "Yes" = "darkorange")) +  guides(fill = "none") +
+  theme_minimal() +
+  labs(title = "Monthly Income by Attrition", y = "Monthly Income") +
+  theme(
+    plot.title = element_text(size = 18, hjust = 0.5),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  )
+
+#overtime & attrition
+ggplot(attrition_data %>% filter(Attrition == "Yes"), 
+       aes(x = OverTime, fill = OverTime)) +
+  geom_bar() +
+  geom_text(stat = "count", 
+            aes(label = paste0(round(..count../sum(..count..)*100,1), "%")), 
+            vjust = -0.5, color = "black", size = 3.5) +
+  scale_fill_manual(values = c("No" = "darkblue", "Yes" = "darkorange")) +
+  scale_x_discrete(labels = c("No" = "Didn't Work Overtime", "Yes" = "Worked Overtime")) +
+  theme_minimal() +
+  guides(fill = "none") +
+  labs(title = "Overtime For Employees Who Left",
+       x = "Overtime",
+       y = "Number of Employees") +
+  theme(
+    plot.title = element_text(size = 18, hjust = 0.5),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  )
+
+#years at company & attrition
+ggplot(attrition_data, aes(x = Attrition, y = YearsAtCompany, fill = Attrition)) +
+  geom_violin(trim = FALSE, alpha = 0.7) +
+  geom_boxplot(width = 0.1, color = "black", alpha = 0.4) +
+  scale_fill_manual(values = c("No" = "darkblue", "Yes" = "darkorange")) +
+  guides(fill = "none") +
+  theme_minimal() +
+  labs(title = "Years at Company by Attrition", 
+       x = "Attrition", 
+       y = "Years at Company") +
+  theme(
+    plot.title = element_text(size = 18, hjust = 0.5),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  )
+
+
+
+
+
+
+#I split the data 70/30
+set.seed(123)
+train_index <- sample(1:nrow(attrition_data), 0.7 * nrow(attrition_data))
+train_data <- attrition_data[train_index, ]
+test_data  <- attrition_data[-train_index, ]
+
+#I separated the data into two groups
+yes_data <- train_data[train_data$Attrition == "Yes", ]
+no_data  <- train_data[train_data$Attrition == "No", ]
+
+#I am taking a random sample to help balance the groups 
+no_attrition_sample <- no_data[sample(1:nrow(no_data), nrow(yes_data)), ]
+train_balanced <- rbind(yes_data, no_attrition_sample)
+
+
+#these are the x and y variables for the modeling
+y_train <- train_balanced$Attrition
+x_train <- train_balanced %>%
+  select(Age, DailyRate, MonthlyIncome, YearsAtCompany, DistanceFromHome,
+         OverTime)
+x_test <- test_data %>%
+  select(Age, DailyRate, MonthlyIncome, YearsAtCompany, DistanceFromHome,
+         OverTime)
+y_test <- test_data$Attrition
+
+x_train$OverTime <- ifelse(x_train$OverTime == "Yes", 1, 0)
+x_test$OverTime  <- ifelse(x_test$OverTime == "Yes", 1, 0)
+
+#scaling the data so that columns values are on the same scale. It helps prevent large values from overtaking the model
+scalemodel <- preProcess(x_train, method = c("center", "scale"))
+train_scaled <- predict(scalemodel, x_train)
+test_scaled  <- predict(scalemodel, x_test)
+
+#This helps with missing values in the test and train data. If the value missing is numeric,it will replace it with the median of that column 
+#If the value missing is not numeric, it will replace it with the most common value in the column. 
+for(i in names(train_data)){
+  if(is.numeric(train_data[[i]])){
+    train_data[[i]][is.na(train_data[[i]])] <- median(train_data[[i]], na.rm = TRUE)
+    test_data[[i]][is.na(test_data[[i]])]  <- median(train_data[[i]], na.rm = TRUE)
+  }
+  if(is.factor(train_data[[i]])){
+    mode_value <- names(which.max(table(train_data[[i]])))
+    train_data[[i]][is.na(train_data[[i]])] <- mode_value
+    test_data[[i]][is.na(test_data[[i]])]  <- mode_value
+  }
+}
+
+#my knn model 
+set.seed(123)
+knn_prediction <- knn(train = train_scaled[, c("Age","DailyRate","MonthlyIncome","YearsAtCompany","DistanceFromHome",
+                                               "OverTime")],
+                  test = test_scaled[, c("Age","DailyRate","MonthlyIncome","YearsAtCompany","DistanceFromHome",
+                                             "OverTime")],
+                  cl = y_train,k = 9, prob = TRUE)
+
+KNN_matrix <- confusionMatrix(table(knn_prediction, y_test), positive = "Yes")
+KNN_matrix
+
+
+predictors <- c("Age", "DailyRate", "MonthlyIncome", "YearsAtCompany", "DistanceFromHome", "OverTime")
+
+#I wanted to see what different k-values would give for sensitivity, specificity, and accuracy
+k_values <- 1:15
+results <- data.frame(K = k_values, Sensitivity = NA, Specificity = NA, Accuracy = NA)
+
+for (i in k_values) {
+  predictions <- knn(train = train_scaled[, predictors],test = test_scaled[, predictors],cl = y_train, k = i)
+  
+  cm <- confusionMatrix(predictions, y_test, positive = "Yes")
+  
+  results[results$K == i, "Sensitivity"] <- cm$byClass["Sensitivity"]
+  results[results$K == i, "Specificity"] <- cm$byClass["Specificity"]
+  results[results$K == i, "Accuracy"]    <- cm$overall["Accuracy"]
+}
+
+results
+
+
+
+
+
+
+#my nb model
+NBmodel <- naiveBayes(Attrition ~ Age + MonthlyIncome + YearsAtCompany + DistanceFromHome + JobSatisfaction + OverTime +
+                      MaritalStatus + NumCompaniesWorked + EnvironmentSatisfaction + JobInvolvement + BusinessTravel + Department, 
+                      data = train_data)
+NBprobability <- predict(NBmodel, newdata = test_data, type = "raw")[, "Yes"]
+NBprediction <- ifelse(NBprobability > 0.2, "Yes", "No")
+NBmatrix <- confusionMatrix(factor(NBprediction, levels = c("No","Yes")),
+            test_data$Attrition, positive = "Yes")
+NBmatrix
+
+
+
+
+
+#my logistic regression model 
+logistic_regression_train <- train_data
+logistic_regression_train <- subset(logistic_regression_train, select = -Over18)  
+#Over 18 only had 1 unique value, causing the model to not run since it is a logistic regression it can't use a variable with
+#only one category because there is nothing the model can compare it to.
+
+logistic_regression_unbalanced <- glm(Attrition ~ ., data = logistic_regression_train, family = binomial())
+
+summary(logistic_regression_unbalanced)  
+
+
+
+
+
+#to figure out the average annual income 
+average_monthly_income <- mean(attrition_data$MonthlyIncome, na.rm = TRUE)
+average_annual_income <- average_monthly_income * 12
+
+average_annual_income 
+
+
+#my COST ANALYSIS for KNN 
+replacement_cost_50  <- 38341.56      
+replacement_cost_400 <- 306732.68
+#I got this by doing 0.5(76,683.17) & 4(76,683.17). In the case it said replacement cost was between 50% and 400% of an employee's salary.
+incentive_cost <- 200
+#incentives cost the company $200 per employee
+
+correct_leavers <- 37         #predicted leave and actually left
+false_leavers <- 15           #predicted to leave and actually stayed
+missed_leavers <- 52          #predicted to stay and actually left
+correct_stayers <- 157        #predicted to stay and actually stayed
+
+#the total cost for the company between 50% and 400% of employee salary
+total_cost_50  <- (missed_leavers * replacement_cost_50) + (false_leavers * incentive_cost)
+total_cost_400 <- (missed_leavers * replacement_cost_400) + (false_leavers * incentive_cost)
+
+#what the company would save 
+savings_50  <- (correct_leavers * replacement_cost_50) - (false_leavers * incentive_cost)
+savings_400 <- (correct_leavers * replacement_cost_400) - (false_leavers * incentive_cost)
+
+total_cost_50
+total_cost_400
+savings_50
+savings_400
+
+
+
+
+
+
+#my COST ANALYSIS for NB
+replacement_cost_50  <- 38341.56      
+replacement_cost_400 <- 306732.68
+#I got this by doing 0.5(76,683.17) & 4(76,683.17). In the case it said replacement cost was between 50% and 400% of an employee's salary.
+incentive_cost <- 200
+#incentives cost the company $200 per employee
+
+correct_leavers <- 35        #predicted leave and actually left
+false_leavers <- 17          #predicted to leave and actually stayed
+missed_leavers <- 39         #predicted to stay and actually left
+correct_stayers <- 170       #predicted to stay and actually stayed
+
+#the total cost for the company between 50% and 400% of employee salary
+total_cost_50  <- (missed_leavers * replacement_cost_50) + (false_leavers * incentive_cost)
+total_cost_400 <- (missed_leavers * replacement_cost_400) + (false_leavers * incentive_cost)
+
+#what the company would save 
+savings_50  <- (correct_leavers * replacement_cost_50) - (false_leavers * incentive_cost)
+savings_400 <- (correct_leavers * replacement_cost_400) - (false_leavers * incentive_cost)
+
+total_cost_50
+total_cost_400
+savings_50
+savings_400
+
+
+
+
+
+#my competition set 
+competition_set <- read.csv("C:/Users/chloe/Downloads/CaseStudy1CompSet No Attrition.csv", header = TRUE, stringsAsFactors = TRUE)
+
+competition_set$BusinessTravel <- factor(competition_set$BusinessTravel,
+                                         levels = c(1,2,3),
+                                         labels = c("Non-Travel","Travel Frequently","Travel Rarely"))
+competition_set$Department <- factor(competition_set$Department,
+                                     levels = c(1,2,3),
+                                     labels = c("HR","R&D","Sales"))
+competition_set$Education <- factor(competition_set$Education,
+                                    levels = 1:5,
+                                    labels = c("Below College","College","Bachelor","Master","Doctor"))
+
+
+NBprobability <- predict(NBmodel, newdata = competition_set, type = "raw")[, "Yes"]
+NBprediction  <- ifelse(NBprobability > 0.2, "Yes", "No")
+
+my_predictions <- data.frame(ID = competition_set$EmployeeNumber,
+                             Attrition = NBprediction)  
+
+my_predictions <- my_predictions[order(my_predictions$ID), ]
+
+write.csv(my_predictions,"Case1PredictionsProwse Attrition.csv",row.names = FALSE)
+
+
+```
+## Analysis 
+I created an EDA that showed employees who work overtime, earn a lower monthly income, or had fewer years at the company were correlated with attrition. The visualizations of Overtime, Years at Company, and Monthly Income showed that there were differences between the employees who stayed and the employees who left.
+
+I then cleaned and prepared the data in order to create two predictive models. The models created were KNN and Naive Bayes, which used balanced and scaled data. Both of these models met the 60% sensitivity and specificity threshold. The KNN model did slightly better in identifying the employees who were at risk of leaving the company (Sensitivity: 71.2%), while the Naive Bayes model had a higher overall accuracy (78.5%) and specificity (81.3%). This made the Naive Bayes model better at identifying the employees who were likely to stay.
+
+A cost analysis of these two models was conducted based on replacement costs and incentive costs. Both of the models could help Frito-Lay save around $1 million to $10 million annually, depending on the percentage of annual salary. The Naive Bayes model was very similar to KNN for savings but it had fewer false positives, which made it more cost-effective for Frito-Lay. 
+
+The logistic regression model created helped identify the factors that were statistically significant for attrition. The model outputted p-values and used ***,**,* to show significance level. Employees who worked overtime, it had been years since a promotion, or had worked at other companies before were more likely to leave the company. Employees with high job satisfaction, job involvement, and environment satisfaction were less likely to leave the company. 
+
+
+
+**Presentation Slides**
+[Case Study 1 Slides](https://1drv.ms/p/c/be8075ec0c0e1341/ESa-C83bs_dLohOKWlECd-sBZ68LePea3NkpxXvK9FN_hA?e=4D6rh6)
+
+**Video Presentation**
+[Youtube Video Presentation](https://youtu.be/GJUMv7MvtGM)
+
+
+
+
+
+
